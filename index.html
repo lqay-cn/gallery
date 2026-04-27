@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <link rel="icon" href="https://tc.lqay.cn/LightPicture/2026/03/5f64e0f0f361e19c.png">
+    <title>画廊 - 流欺</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+            position: relative;
+            background-color: #f4f6fa;
+            overflow-x: hidden;
+        }
+        
+        /* 背景图层容器 - 双图层叠加 */
+        .bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            z-index: -2;
+        }
+        
+        #bgOld {
+            opacity: 1;
+        }
+        
+        #bgNew {
+            opacity: 1;
+            transform: translate(0, 0);
+        }
+        
+        /* 平移动画 - 新图层移入，旧图层保持不动（最终会被覆盖） */
+        @keyframes slideInLeft {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(0); }
+        }
+        @keyframes slideInRight {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(0); }
+        }
+        @keyframes slideInUp {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(0); }
+        }
+        @keyframes slideInDown {
+            0% { transform: translateY(100%); }
+            100% { transform: translateY(0); }
+        }
+        @keyframes diagonalInTR {
+            0% { transform: translate(100%, -100%); }
+            100% { transform: translate(0, 0); }
+        }
+        @keyframes diagonalInTL {
+            0% { transform: translate(-100%, -100%); }
+            100% { transform: translate(0, 0); }
+        }
+        @keyframes diagonalInBR {
+            0% { transform: translate(100%, 100%); }
+            100% { transform: translate(0, 0); }
+        }
+        @keyframes diagonalInBL {
+            0% { transform: translate(-100%, 100%); }
+            100% { transform: translate(0, 0); }
+        }
+        
+        .animate-slide-left {
+            animation: slideInLeft 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-slide-right {
+            animation: slideInRight 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-slide-up {
+            animation: slideInUp 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-slide-down {
+            animation: slideInDown 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-diagonal-tr {
+            animation: diagonalInTR 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-diagonal-tl {
+            animation: diagonalInTL 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-diagonal-br {
+            animation: diagonalInBR 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-diagonal-bl {
+            animation: diagonalInBL 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        
+        /* 半透明遮罩 - 调亮背景 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.1);
+            z-index: -1;
+        }
+
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .nav-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 12px 28px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #0f172a;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            background: rgba(241, 245, 249, 0.8);
+            backdrop-filter: blur(4px);
+            padding: 5px;
+            border-radius: 60px;
+        }
+
+        .filter-btn {
+            border: none;
+            background: transparent;
+            padding: 7px 22px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .filter-btn.active {
+            background: white;
+            color: #0f172a;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        }
+
+        .stats-display {
+            background: rgba(238, 242, 255, 0.9);
+            backdrop-filter: blur(4px);
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #1e40af;
+        }
+
+        .gallery-wrapper {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 28px 24px 70px;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border-radius: 28px;
+            padding: 20px 28px;
+            margin-bottom: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .info-desc {
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+
+        .waterfall {
+            width: 100%;
+        }
+        .waterfall-columns {
+            display: flex;
+            flex-direction: row;
+            gap: 24px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .waterfall-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .gallery-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(4px);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+            transition: all 0.25s ease;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            width: 100%;
+        }
+        .gallery-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.25);
+            background: white;
+        }
+        .img-container {
+            position: relative;
+            width: 100%;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .img-container.skeleton {
+            background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .img-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s, opacity 0.3s;
+            opacity: 0;
+        }
+        .img-container img.loaded {
+            opacity: 1;
+        }
+        .load-trigger {
+            display: flex;
+            justify-content: center;
+            padding: 48px 20px 32px;
+        }
+        .loader-box {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 12px 28px;
+            border-radius: 60px;
+            display: inline-flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #cbd5e1;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .end-message {
+            text-align: center;
+            padding: 40px;
+            color: #1e293b;
+            background: rgba(255,255,240,0.7);
+            border-radius: 48px;
+            backdrop-filter: blur(4px);
+            font-size: 0.9rem;
+        }
+        .preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.92);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0.2s, opacity 0.2s;
+        }
+        .preview-modal.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .preview-box {
+            max-width: 90vw;
+            max-height: 90vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .preview-box img {
+            max-width: 100%;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .preview-actions {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .preview-btn {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 24px;
+            border-radius: 40px;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .preview-btn:hover {
+            background: rgba(255,255,255,0.35);
+            transform: scale(1.02);
+        }
+        .close-preview {
+            position: absolute;
+            top: -44px;
+            right: -16px;
+            background: rgba(30,30,40,0.8);
+            border: none;
+            color: white;
+            font-size: 26px;
+            width: 44px;
+            height: 44px;
+            border-radius: 60px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .back-top {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 40px;
+            padding: 10px 20px;
+            font-size: 0.8rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            cursor: pointer;
+            z-index: 99;
+            border: none;
+            backdrop-filter: blur(4px);
+        }
+        .back-top:hover {
+            background: white;
+            transform: scale(1.02);
+        }
+        @media (max-width: 768px) {
+            .waterfall-columns { gap: 16px; }
+            .waterfall-col { gap: 16px; }
+            .filter-btn { padding: 5px 14px; font-size: 0.7rem; }
+        }
+        @media (max-width: 640px) {
+            .waterfall-columns { gap: 12px; }
+            .waterfall-col { gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 双背景图层：old 始终显示当前图片，new 从外面移入覆盖 -->
+<div id="bgOld" class="bg-layer" style="background-image: url('');"></div>
+<div id="bgNew" class="bg-layer" style="background-image: url('');"></div>
+
+<div class="navbar">
+    <div class="nav-container">
+        <a href="#" class="logo-area">
+            <div class="logo-icon">
+                <img src="https://tc.lqay.cn/LightPicture/2026/03/5f64e0f0f361e19c.png" alt="logo">
+            </div>
+            <span>画廊 - 流欺</span>
+        </a>
+        <div class="filter-bar" id="filterTabs">
+            <button class="filter-btn active" data-type="all">全部</button>
+            <button class="filter-btn" data-type="horizontal">横图</button>
+            <button class="filter-btn" data-type="vertical">竖图</button>
+            <button class="filter-btn" data-type="square">方图</button>
+        </div>
+        <div class="stats-display" id="statsDisplay">共 0 张图片</div>
+    </div>
+</div>
+
+<div class="gallery-wrapper">
+    <div class="info-card">
+        <div class="info-title">
+            <h2 style="font-weight: 600;">🎨 画廊</h2>
+            <span style="background:#eef2ff; padding:4px 14px; border-radius:50px; font-size:0.7rem;">点击图片预览 · 支持下载</span>
+        </div>
+        <div class="info-desc" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
+            <span>📌 图片源：<strong>https://github.com/lqay-cn/cdn</strong></span>
+            <a href="https://blog.lqay.cn" target="_blank" rel="noopener noreferrer" style="background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(8px); color: #1e40af; padding: 6px 20px; border-radius: 40px; text-decoration: none; font-size: 0.8rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s ease; border: 1px solid rgba(0, 0, 0, 0.06); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="currentColor"/>
+                </svg>
+                前往博客
+            </a>
+        </div>
+    </div>
+
+    <div id="waterfallContainer" class="waterfall">
+        <div id="waterfallColumns" class="waterfall-columns"></div>
+    </div>
+
+    <div id="scrollTrigger" class="load-trigger">
+        <div class="loader-box"><div class="spinner"></div><span>👇 滚动加载更多</span></div>
+    </div>
+    <div id="endMessage" style="display: none;" class="end-message">✨ 已经到底啦 —— 全部图片加载完毕 ✨</div>
+</div>
+
+<button id="backTopBtn" class="back-top" style="display: none;">↑ 顶部</button>
+
+<div id="previewModal" class="preview-modal">
+    <div class="preview-box">
+        <button class="close-preview" id="closePreviewBtn">✕</button>
+        <img id="previewImg" src="" alt="preview">
+        <div class="preview-actions">
+            <button class="preview-btn" id="downloadBtn">下载原图</button>
+            <button class="preview-btn" id="openInNewBtn">新窗口打开</button>
+        </div>
+        <div class="preview-caption" id="previewCaption"></div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ========== 平移背景图切换（新图从外部移入） ==========
+        const BG_API_URL = 'https://api.lqay.cn/api/zxsjt/?cat=heng';
+        let bgInterval = null;
+        let isSwitching = false;
+        
+        const bgOld = document.getElementById('bgOld');
+        const bgNew = document.getElementById('bgNew');
+        
+        // 动画类数组（所有方向）
+        const animations = [
+            'animate-slide-left', 'animate-slide-right', 
+            'animate-slide-up', 'animate-slide-down',
+            'animate-diagonal-tr', 'animate-diagonal-tl', 
+            'animate-diagonal-br', 'animate-diagonal-bl'
+        ];
+        
+        // 预加载图片
+        function preloadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(url);
+                img.onerror = () => reject(new Error('预加载失败'));
+                img.src = url;
+            });
+        }
+        
+        // 随机获取动画类
+        function getRandomAnimation() {
+            return animations[Math.floor(Math.random() * animations.length)];
+        }
+        
+        // 平移切换背景图（新图从外面飞入覆盖旧图）
+        async function switchBackground(imageUrl) {
+            if (isSwitching) return;
+            isSwitching = true;
+            
+            try {
+                // 先预加载新图片
+                await preloadImage(imageUrl);
+                
+                // 随机选择一个动画效果
+                const animationClass = getRandomAnimation();
+                
+                // 设置新图片到 bgNew 层
+                bgNew.style.backgroundImage = `url(${imageUrl})`;
+                bgNew.style.transform = 'translate(0, 0)';
+                
+                // 清除之前的动画类
+                bgNew.classList.remove(...animations);
+                
+                // 强制重绘
+                void bgNew.offsetHeight;
+                
+                // 给新图层添加动画（从外部移入）
+                bgNew.classList.add(animationClass);
+                
+                // 等待动画完成（650-700ms）
+                await new Promise(r => setTimeout(r, 680));
+                
+                // 动画完成后，将旧图层的内容替换为新图片，新图层重置
+                bgOld.style.backgroundImage = `url(${imageUrl})`;
+                bgNew.style.backgroundImage = '';
+                bgNew.style.transform = 'translate(0, 0)';
+                
+                // 清除动画类
+                bgNew.classList.remove(animationClass);
+                
+            } catch (err) {
+                console.warn('背景切换失败:', err);
+            } finally {
+                isSwitching = false;
+            }
+        }
+        
+        // 获取随机背景图
+        async function fetchRandomBackground() {
+            try {
+                const response = await fetch(BG_API_URL);
+                if (!response.ok) throw new Error('背景API请求失败');
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                await switchBackground(imageUrl);
+                // 清理blob URL
+                setTimeout(() => URL.revokeObjectURL(imageUrl), 3000);
+            } catch (err) {
+                console.error('获取背景图失败:', err);
+            }
+        }
+        
+        function startBackgroundRotation() {
+            fetchRandomBackground();
+            if (bgInterval) clearInterval(bgInterval);
+            bgInterval = setInterval(fetchRandomBackground, 5000);
+        }
+        
+        // ========== 画廊逻辑 ==========
+        const IMG_TXT_FILE = './img.txt';
+        const BATCH_SIZE = 28;
+        let allImageUrls = [], currentFilter = 'all', filteredUrls = [], renderedCount = 0, isLoading = false, finished = false;
+        let columnElements = [], observer = null, currentPreviewUrl = '';
+        const columnsContainer = document.getElementById('waterfallColumns');
+        const triggerDiv = document.getElementById('scrollTrigger');
+        const endDiv = document.getElementById('endMessage');
+        const statsSpan = document.getElementById('statsDisplay');
+        
+        function getImageTypeFromUrl(url) {
+            if (url.includes('/h/')) return 'horizontal';
+            if (url.includes('/s/')) return 'vertical';
+            if (url.includes('/f/')) return 'square';
+            return 'square';
+        }
+        
+        function getPaddingByType(type) {
+            if (type === 'horizontal') return '66%';
+            if (type === 'vertical') return '140%';
+            return '100%';
+        }
+        
+        function getColumnCount() {
+            if (window.innerWidth <= 640) return 2;
+            if (window.innerWidth <= 1000) return 3;
+            return 4;
+        }
+        
+        function initColumns() {
+            const colCount = getColumnCount();
+            columnsContainer.innerHTML = '';
+            columnElements = [];
+            for (let i = 0; i < colCount; i++) {
+                const col = document.createElement('div');
+                col.className = 'waterfall-col';
+                columnsContainer.appendChild(col);
+                columnElements.push(col);
+            }
+        }
+        
+        function buildCard(url) {
+            const type = getImageTypeFromUrl(url);
+            const card = document.createElement('div');
+            card.className = 'gallery-card';
+            const imgWrap = document.createElement('div');
+            imgWrap.className = 'img-container skeleton';
+            imgWrap.style.paddingBottom = getPaddingByType(type);
+            const img = document.createElement('img');
+            img.loading = 'lazy';
+            img.src = url;
+            img.onload = () => { img.classList.add('loaded'); imgWrap.classList.remove('skeleton'); };
+            img.onerror = () => { imgWrap.classList.remove('skeleton'); imgWrap.style.backgroundColor = '#fee2e2'; img.classList.add('loaded'); };
+            imgWrap.appendChild(img);
+            card.appendChild(imgWrap);
+            card.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentPreviewUrl = url;
+                document.getElementById('previewImg').src = url;
+                document.getElementById('previewModal').classList.add('active');
+                const filename = url.split('/').pop().split('?')[0];
+                document.getElementById('previewCaption').innerHTML = `文件名: ${filename.substring(0, 50)}`;
+            });
+            return card;
+        }
+        
+        function addToShortestColumn(card) {
+            if (!columnElements.length) return;
+            let minHeightCol = columnElements[0];
+            let minHeight = minHeightCol.offsetHeight;
+            for (let i = 1; i < columnElements.length; i++) {
+                const h = columnElements[i].offsetHeight;
+                if (h < minHeight) { minHeight = h; minHeightCol = columnElements[i]; }
+            }
+            minHeightCol.appendChild(card);
+        }
+        
+        function renderBatch(urls) {
+            if (!urls.length) return;
+            const cards = urls.map(url => buildCard(url));
+            cards.forEach(card => addToShortestColumn(card));
+        }
+        
+        async function loadMore() {
+            if (isLoading || finished || renderedCount >= filteredUrls.length) return;
+            isLoading = true;
+            const loadText = triggerDiv?.querySelector('span');
+            if (loadText) loadText.innerText = '🎨 加载中...';
+            await new Promise(r => setTimeout(r, 30));
+            const end = Math.min(renderedCount + BATCH_SIZE, filteredUrls.length);
+            renderBatch(filteredUrls.slice(renderedCount, end));
+            renderedCount = end;
+            isLoading = false;
+            if (loadText) loadText.innerText = '👇 滚动加载更多';
+            if (renderedCount >= filteredUrls.length) finished = true;
+            updateUI();
+        }
+        
+        function switchFilter(type) {
+            if (type === currentFilter) return;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-type') === type);
+            });
+            currentFilter = type;
+            if (currentFilter === 'all') filteredUrls = [...allImageUrls];
+            else {
+                const target = currentFilter === 'horizontal' ? '/h/' : (currentFilter === 'vertical' ? '/s/' : '/f/');
+                filteredUrls = allImageUrls.filter(url => url.includes(target));
+            }
+            renderedCount = 0; finished = false;
+            initColumns();
+            if (filteredUrls.length === 0) {
+                columnsContainer.innerHTML = '<div style="text-align:center; padding:70px;">✨ 暂无此类图片 ✨</div>';
+                if (triggerDiv) triggerDiv.style.display = 'none';
+                if (endDiv) endDiv.style.display = 'block';
+            } else {
+                if (triggerDiv) triggerDiv.style.display = 'flex';
+                if (endDiv) endDiv.style.display = 'none';
+                const firstBatch = filteredUrls.slice(0, BATCH_SIZE);
+                renderBatch(firstBatch);
+                renderedCount = Math.min(BATCH_SIZE, filteredUrls.length);
+                if (renderedCount >= filteredUrls.length) finished = true;
+            }
+            updateUI();
+            rebindObserver();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function updateUI() {
+            const total = allImageUrls.length;
+            statsSpan.innerHTML = `共 ${total} 张图片`;
+            if (finished || renderedCount >= filteredUrls.length) {
+                if (triggerDiv && filteredUrls.length > 0) triggerDiv.style.display = 'none';
+                if (endDiv && filteredUrls.length > 0) endDiv.style.display = 'block';
+            } else {
+                if (triggerDiv && filteredUrls.length) triggerDiv.style.display = 'flex';
+                if (endDiv) endDiv.style.display = 'none';
+            }
+        }
+        
+        function rebindObserver() {
+            if (observer) observer.disconnect();
+            if (!triggerDiv) return;
+            observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !isLoading && !finished && renderedCount < filteredUrls.length) loadMore();
+                });
+            }, { rootMargin: '0px 0px 200px 0px', threshold: 0.1 });
+            observer.observe(triggerDiv);
+        }
+        
+        async function loadUrlList() {
+            try {
+                const resp = await fetch(IMG_TXT_FILE, { cache: 'no-store' });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const text = await resp.text();
+                let urls = text.split(/\r?\n/).filter(l => l.trim().length > 0 && !l.trim().startsWith('#'));
+                if (urls.length === 0) throw new Error('img.txt 无有效URL');
+                allImageUrls = urls;
+                filteredUrls = [...allImageUrls];
+                initColumns();
+                renderBatch(filteredUrls.slice(0, BATCH_SIZE));
+                renderedCount = Math.min(BATCH_SIZE, filteredUrls.length);
+                updateUI();
+                rebindObserver();
+            } catch (err) {
+                console.error(err);
+                columnsContainer.innerHTML = `<div style="text-align:center; padding:80px;">❌ 失败: ${err.message}<br>请确认 img.txt 存在</div>`;
+                if (triggerDiv) triggerDiv.style.display = 'none';
+            }
+        }
+        
+        // 绑定事件
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => switchFilter(btn.getAttribute('data-type'))));
+        const modalEl = document.getElementById('previewModal');
+        document.getElementById('closePreviewBtn').onclick = () => modalEl.classList.remove('active');
+        modalEl.onclick = (e) => { if (e.target === modalEl) modalEl.classList.remove('active'); };
+        document.getElementById('downloadBtn').onclick = () => { if (currentPreviewUrl) { const a = document.createElement('a'); a.href = currentPreviewUrl; a.download = currentPreviewUrl.split('/').pop(); a.click(); } };
+        document.getElementById('openInNewBtn').onclick = () => { if (currentPreviewUrl) window.open(currentPreviewUrl, '_blank'); };
+        document.getElementById('backTopBtn').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.onscroll = () => document.getElementById('backTopBtn').style.display = window.scrollY > 500 ? 'flex' : 'none';
+        let resizeTimer; window.onresize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (filteredUrls.length) { const urls = filteredUrls.slice(0, renderedCount); initColumns(); urls.forEach(url => addToShortestColumn(buildCard(url))); rebindObserver(); } }, 150); };
+        
+        // 启动
+        startBackgroundRotation();
+        loadUrlList();
+    })();
+</script>
+</body>
+</html>
