@@ -18,18 +18,16 @@
 
 在项目根目录创建 `img.txt` 文件，每行一个图片URL：
 https://example.com/images/photo1.jpg
-https://example.com/images/photo2.png
-https://example.com/images/photo3.webp
 
-text
+https://example.com/images/photo2.png
+
+https://example.com/images/photo3.webp
 
 ### 2. 目录结构
 project/
 ├── index.html # 主文件
 ├── img.txt # 图片URL列表
 └── README.md # 说明文档
-
-text
 
 ### 3. 运行
 
@@ -69,31 +67,3 @@ API提供：[你的博客/API地址]
 
 📮 联系
 博客：blog.lqay.cn
-
-GitHub：lqay-cn
-
-text
-
----
-
-### 如果你想更简洁，可以用这个迷你版：
-
-```markdown
-# 画廊 - 流欺
-
-瀑布流图片画廊，支持分类/懒加载/动态背景。
-
-## 使用
-
-1. 创建 `img.txt`，每行一个图片URL
-2. 双击 `index.html` 运行
-
-## 图片分类规则
-
-- 横图：URL包含 `/h/`
-- 竖图：URL包含 `/s/`  
-- 方图：URL包含 `/f/`
-
-## 许可证
-
-MIT © 2026 流欺
